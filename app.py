@@ -1,266 +1,144 @@
 import streamlit as st
 
-from anchor_data import *
 from calculations import *
-from report_generator import *
 
-st.set_page_config(
-    page_title="Baseplate Anchor Design Tool",
-    layout="wide"
+from data import *
+
+
+st.set_page_config(layout="wide")
+
+st.title(
+    "Submersible Pump Foundation & Anchor Design Tool"
 )
 
-st.title("🔩 Baseplate Anchor & Foundation Design Tool")
+st.header("Inputs")
 
-st.markdown("""
-Preliminary Design Tool for:
-
-- Anchor Selection Review
-- Hole Size Recommendation
-- Slot Size Recommendation
-- Embedment Depth Recommendation
-- FEA Submission Support
-""")
-
-# ============================
-# INPUTS
-# ============================
-
-st.header("Input Parameters")
-
-col1, col2 = st.columns(2)
+col1,col2 = st.columns(2)
 
 with col1:
 
-    pump_weight = st.number_input(
+    weight = st.number_input(
         "Pump Weight (kg)",
-        value=1500.0
+        value=2000
     )
 
-    duty_flow = st.number_input(
-        "Duty Flow (m³/hr)",
-        value=300.0
+    flow = st.number_input(
+        "Duty Flow (m3/hr)",
+        value=100
     )
 
     head = st.number_input(
         "Head (m)",
-        value=40.0
+        value=10
     )
 
-    pipe_size = st.number_input(
-        "Pipe Size DN",
-        value=200
+    pipe_size = st.selectbox(
+        "Pipe Size",
+        list(PIPE_DATA.keys())
     )
 
 with col2:
 
     pipe_length = st.number_input(
         "Pipe Length (m)",
-        value=10.0
+        value=10
     )
 
-    support = st.selectbox(
-        "Pipe Support Arrangement",
+    orientation = st.selectbox(
+        "Pipe Orientation",
         [
-            "Vertical Pipe - Horizontal Support",
-            "Horizontal Pipe - Vertical Support"
+            "Horizontal",
+            "Vertical"
         ]
     )
 
-    anchors = st.selectbox(
-        "Number of Anchors",
-        [4, 6, 8, 12]
+    concrete = st.selectbox(
+        "Concrete Grade",
+        [
+            "M20",
+            "M25",
+            "M30",
+            "M35"
+        ]
     )
 
-    anchor = st.selectbox(
-        "Selected Anchor",
-        list(ANCHOR_CAPACITY.keys())
+
+if st.button("Run Analysis"):
+
+    load = calculate_operating_load(weight)
+
+    spacing = support_spacing(pipe_size)
+
+    qty = support_quantity(
+        pipe_length,
+        spacing
     )
 
-concrete = st.selectbox(
-    "Concrete Grade",
-    list(CONCRETE_FACTOR.keys())
-)
-
-# ============================
-# RUN
-# ============================
-
-if st.button("▶ Run Review"):
-
-    pump_load = calculate_pump_load(
-        pump_weight
+    locations = support_locations(
+        pipe_length,
+        spacing
     )
 
-    additional_load = estimate_additional_load(
-        pump_load,
-        duty_flow,
-        head,
-        pipe_size,
-        pipe_length
-    )
+    anchor = recommend_anchor(weight)
 
-    total = total_load(
-        pump_load,
-        additional_load
-    )
+    hole = ANCHORS[anchor]["hole"]
 
-    anchor_load = load_per_anchor(
-        total,
-        anchors
-    )
+    slot_width = ANCHORS[anchor]["slot_width"]
 
-    utilization = calculate_utilization(
-        anchor_load,
-        anchor
-    )
+    slot_length = ANCHORS[anchor]["slot_length"]
 
-    embedment = embedment_depth(
-        anchor,
-        concrete
-    )
+    embedment = ANCHORS[anchor]["embedment"]
 
-    hole = HOLE_SIZE[anchor]
-
-    slot_width, slot_length = slot_size(
-        anchor
+    length,width,thickness = (
+        recommend_baseplate(weight)
     )
 
     st.header("Results")
 
-    colA, colB = st.columns(2)
-
-    with colA:
-
-        st.metric(
-            "Pump Load (kN)",
-            f"{pump_load:.2f}"
-        )
-
-        st.metric(
-            "Additional Load (kN)",
-            f"{additional_load:.2f}"
-        )
-
-        st.metric(
-            "Total Load (kN)",
-            f"{total:.2f}"
-        )
-
-        st.metric(
-            "Load per Anchor (kN)",
-            f"{anchor_load:.2f}"
-        )
-
-    with colB:
-
-        st.metric(
-            "Anchor",
-            anchor
-        )
-
-        st.metric(
-            "Hole Size",
-            f"Ø {hole} mm"
-        )
-
-        st.metric(
-            "Slot Size",
-            f"{slot_width} x {slot_length}"
-        )
-
-        st.metric(
-            "Embedment",
-            f"{embedment:.0f} mm"
-        )
-
-    st.subheader("Anchor Utilization")
+    st.write(
+        f"Operating Load : {load:.2f} kN"
+    )
 
     st.write(
-        f"{utilization:.1f}%"
+        f"Support Spacing : {spacing} m"
     )
 
-    if utilization < 70:
-        st.success(
-            "✅ Safe"
-        )
-
-    elif utilization < 90:
-        st.warning(
-            "🟡 Review Recommended"
-        )
-
-    elif utilization <= 100:
-        st.warning(
-            "🟠 Near Capacity"
-        )
-
-    else:
-        st.error(
-            "🔴 Upgrade Anchor"
-        )
-
-    report_data = {
-
-        "Pump Weight":
-            pump_weight,
-
-        "Flow":
-            duty_flow,
-
-        "Head":
-            head,
-
-        "Pipe Length":
-            pipe_length,
-
-        "Anchor":
-            anchor,
-
-        "Hole Size":
-            f"Ø {hole}",
-
-        "Embedment":
-            f"{embedment:.0f} mm",
-
-        "Load/Anchor":
-            f"{anchor_load:.2f} kN",
-
-        "Utilization":
-            f"{utilization:.1f}%"
-    }
-
-    pdf = create_pdf(
-        report_data
+    st.write(
+        f"Supports Required : {qty}"
     )
 
-    with open(pdf, "rb") as file:
+    st.write(
+        f"Support Locations : {locations}"
+    )
 
-        st.download_button(
-            label="📄 Download Report",
-            data=file,
-            file_name="Anchor_Design_Report.pdf",
-            mime="application/pdf"
-        )
+    st.write(
+        f"Recommended Anchor : {anchor}"
+    )
 
-# ============================
-# CONCRETE GUIDE
-# ============================
+    st.write(
+        f"Hole Size : Ø{hole} mm"
+    )
 
-with st.expander("📘 Concrete Grade Guide"):
+    st.write(
+        f"Slot Size : {slot_width} x {slot_length} mm"
+    )
 
-    st.markdown("""
-### M20
-Light-duty foundations
+    st.write(
+        f"Embedment Depth : {embedment} mm"
+    )
 
-### M25
-Typical pump foundations
+    st.write(
+        f"Baseplate Length : {length} mm"
+    )
 
-### M30
-Heavy-duty machine foundations
+    st.write(
+        f"Baseplate Width : {width} mm"
+    )
 
-### M35
-Industrial equipment foundations
+    st.write(
+        f"Baseplate Thickness : {thickness} mm"
+    )
 
-### M40
-Critical heavy-duty installations
-""")
+    st.success(
+        "Preliminary recommendation only. Verify through FEA/Hilti/Structural review."
+    )
