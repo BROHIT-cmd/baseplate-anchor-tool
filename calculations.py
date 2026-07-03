@@ -1,61 +1,68 @@
-from anchor_data import *
+import math
 
-def calculate_pump_load(weight):
+from data import *
+
+def calculate_operating_load(weight):
+
     return weight * 9.81 / 1000
 
 
-def estimate_additional_load(
-        pump_load,
-        duty_flow,
-        head,
-        pipe_size,
-        pipe_length):
+def support_spacing(pipe_size):
 
-    pipe_factor = (pipe_size * pipe_length) / 100000
-
-    flow_factor = duty_flow / 100
-
-    head_factor = head / 100
-
-    additional_load = (
-        pump_load *
-        (pipe_factor + flow_factor + head_factor)
-    ) * 0.15
-
-    return additional_load
+    return SUPPORT_SPACING[pipe_size]
 
 
-def total_load(pump_load, additional_load):
-    return pump_load + additional_load
+def support_quantity(pipe_length, spacing):
+
+    return math.ceil(pipe_length / spacing) + 1
 
 
-def load_per_anchor(total_load, anchors):
-    return total_load / anchors
+def support_locations(pipe_length, spacing):
+
+    loc = []
+
+    current = 0
+
+    while current < pipe_length:
+
+        loc.append(round(current,2))
+
+        current += spacing
+
+    loc.append(pipe_length)
+
+    return loc
 
 
-def calculate_utilization(load_per_anchor_value, anchor):
-    capacity = ANCHOR_CAPACITY[anchor]
+def recommend_anchor(weight):
 
-    return (
-        load_per_anchor_value /
-        capacity
-    ) * 100
+    if weight <= 1500:
+        return "M16"
 
+    elif weight <= 3000:
+        return "M20"
 
-def embedment_depth(anchor, concrete):
-    dia = ANCHOR_DIAMETER[anchor]
+    elif weight <= 5000:
+        return "M24"
 
-    factor = CONCRETE_FACTOR[concrete]
-
-    return dia * 10 * factor
+    else:
+        return "M30"
 
 
-def slot_size(anchor):
+def recommend_baseplate(weight):
 
-    hole = HOLE_SIZE[anchor]
+    if weight <= 1500:
 
-    slot_width = hole
+        return 1500,700,12
 
-    slot_length = hole + 20
+    elif weight <= 3000:
 
-    return slot_width, slot_length
+        return 2000,800,15
+
+    elif weight <= 5000:
+
+        return 2500,900,20
+
+    else:
+
+        return 3000,1000,25
